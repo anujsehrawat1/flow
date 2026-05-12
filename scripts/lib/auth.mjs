@@ -118,21 +118,21 @@ export async function refreshToken(sessionCookie) {
 }
 
 export async function getValidToken() {
-  const data = readToken();
-  if (!data) return null;
+  const data = readToken() || {};
 
   // Token still valid (5 min buffer)
   if (data.accessToken && data.expiresAt && data.expiresAt > Date.now() + 300000) {
     return data.accessToken;
   }
 
-  // Auto-refresh via session cookie
+  // Auto-refresh via session cookie or scraping
+  console.log('[Auth] Token expired or missing. Attempting refresh...');
   const sessionCookie = await ensureSessionCookie();
   if (sessionCookie) {
     const newToken = await refreshToken(sessionCookie);
     if (newToken) {
       saveToken({ ...data, sessionCookie, accessToken: newToken, expiresAt: Date.now() + 3600000 });
-      console.log('Token auto-refreshed via session cookie.');
+      console.log('[Auth] Token auto-refreshed via session cookie.');
       return newToken;
     }
   }
@@ -267,10 +267,11 @@ export async function ensureToken() {
   const token = await getValidToken();
   if (token) return token;
 
-  console.log('\n[Auth] Session expired or missing. Launching automated login...');
+  const isHF = !!process.env.SPACE_ID;
+  console.log(`\n[Auth] Session expired or missing. Launching automated login (Headless: ${isHF})...`);
   
-  // Try automated login (windowed so user can see/interact if needed)
-  const auth = await getAutomatedAuth(false);
+  // On HF, we MUST use headless mode. Locally we can use windowed for first-time login.
+  const auth = await getAutomatedAuth(isHF);
   
   if (auth) {
     saveToken({ 
@@ -282,7 +283,7 @@ export async function ensureToken() {
     return auth.accessToken;
   }
 
-  throw new Error('Automated login failed. Please ensure your browser setup is correct.');
+  throw new Error('Automated login failed. Please ensure your browser_state.json is valid or run "npm run login" locally.');
 }
 
 // ─── reCAPTCHA ─────────────────────────────────────────────────────────────

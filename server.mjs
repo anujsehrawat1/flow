@@ -225,13 +225,13 @@ async function startVideoGeneration(prompt, model, ratio, token, projectId, reca
  *       200:
  *         description: Success
  */
-app.post('/generate', async (req, res) => {
+app.post('/generate', async (req, res, next) => {
   let { prompt, model = 'imagen4', ratio = '1:1', count = 1, projectId } = req.body;
   if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
 
   try {
     const token = await ensureToken();
-    const tokenData = await readToken();
+    const tokenData = await readToken() || {};
     if (!projectId) {
       const sessionCookie = await ensureSessionCookie();
       projectId = tokenData?.projectId || await createProject(`Auto Image Project`, token, sessionCookie);
@@ -248,7 +248,7 @@ app.post('/generate', async (req, res) => {
 
     res.json({ success: true, projectId, images });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    next(error);
   }
 });
 
@@ -283,13 +283,13 @@ app.post('/generate', async (req, res) => {
  *       200:
  *         description: Success. Returns mediaId to poll status.
  */
-app.post('/generate-video', async (req, res) => {
+app.post('/generate-video', async (req, res, next) => {
   let { prompt, model = 'veo', ratio = '16:9', projectId } = req.body;
   if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
 
   try {
     const token = await ensureToken();
-    const tokenData = await readToken();
+    const tokenData = await readToken() || {};
     if (!projectId) {
       const sessionCookie = await ensureSessionCookie();
       projectId = tokenData?.projectId || await createProject(`Auto Video Project`, token, sessionCookie);
@@ -300,7 +300,7 @@ app.post('/generate-video', async (req, res) => {
     const videoMediaId = await startVideoGeneration(prompt, model, ratio, token, projectId, recaptchaToken);
     res.json({ success: true, projectId, mediaId: videoMediaId });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    next(error);
   }
 });
 
@@ -318,7 +318,7 @@ app.post('/generate-video', async (req, res) => {
  *       200:
  *         description: Current status and download URL if successful.
  */
-app.get('/video-status/:mediaId', async (req, res) => {
+app.get('/video-status/:mediaId', async (req, res, next) => {
   const { mediaId } = req.params;
   try {
     const token = await ensureToken();
@@ -333,7 +333,7 @@ app.get('/video-status/:mediaId', async (req, res) => {
     const downloadUrl = status === 'MEDIA_GENERATION_STATUS_SUCCESSFUL' ? `https://labs.google/fx/api/trpc/media.getMediaUrlRedirect?name=${encodeURIComponent(mediaId)}` : null;
     res.json({ success: true, status, downloadUrl });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    next(error);
   }
 });
 
@@ -346,10 +346,14 @@ app.get('/video-status/:mediaId', async (req, res) => {
  *       200:
  *         description: Whether the CLI is connected to Google.
  */
-app.get('/auth-status', async (req, res) => {
-  const sessionCookie = await ensureSessionCookie();
-  const tokenData = await readToken();
-  res.json({ connected: !!(sessionCookie), projectId: tokenData?.projectId });
+app.get('/auth-status', async (req, res, next) => {
+  try {
+    const sessionCookie = await ensureSessionCookie();
+    const tokenData = await readToken() || {};
+    res.json({ connected: !!(sessionCookie), projectId: tokenData?.projectId });
+  } catch (error) {
+    next(error);
+  }
 });
 
 /**
@@ -368,7 +372,7 @@ app.get('/auth-status', async (req, res) => {
  *       200:
  *         description: Returns new projectId.
  */
-app.post('/create-project', async (req, res) => {
+app.post('/create-project', async (req, res, next) => {
   const { title } = req.body;
   try {
     const token = await ensureToken();
@@ -376,11 +380,17 @@ app.post('/create-project', async (req, res) => {
     const projectId = await createProject(title, token, sessionCookie);
     res.json({ success: true, projectId });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    next(error);
   }
 });
 
 app.get('/', (req, res) => res.redirect('/api-docs'));
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('[App Error]:', err);
+  res.status(500).json({ success: false, error: err.message || 'Internal Server Error' });
+});
 
 process.on('SIGINT', async () => { await cleanup(); process.exit(0); });
 
