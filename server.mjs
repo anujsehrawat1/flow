@@ -22,6 +22,16 @@ app.use(express.json({ limit: '50mb' }));
 
 // ─── SWAGGER SETUP ─────────────────────────────────────────────────────────
 
+// Dynamic server URL for Swagger (Hugging Face support)
+const getBaseUrl = () => {
+  if (process.env.SPACE_ID) {
+    // Format: user-space.hf.space
+    const [user, space] = process.env.SPACE_ID.split('/');
+    return `https://${user}-${space.replace(/_/g, '-')}.hf.space`;
+  }
+  return `http://localhost:${PORT}`;
+};
+
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
@@ -30,7 +40,7 @@ const swaggerOptions = {
       version: '2.5.0',
       description: 'Advanced Image & Video generation proxy for Google Flow. Supports auto-project creation and detailed status tracking.',
     },
-    servers: [{ url: `http://localhost:${PORT}` }],
+    servers: [{ url: getBaseUrl() }],
   },
   apis: ['./server.mjs'],
 };
