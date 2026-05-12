@@ -9,6 +9,8 @@ const TOKEN_DIR = join(PROJECT_ROOT, '.auth-data');
 const STORAGE_STATE_FILE = join(TOKEN_DIR, 'browser_state.json');
 const SITE_KEY = '6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV';
 
+const isDocker = process.env.SPACE_ID || existsSync('/.dockerenv');
+
 // In-memory storage state to prevent filesystem writes
 let _memoryStorageState = null;
 
@@ -26,19 +28,26 @@ function readStorageState() {
 }
 
 export async function getAutomatedAuth(headless = false) {
+  // Use system browser if on Windows, else use playwright's default (which is installed in Docker)
   const bravePath = 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe';
+  const executablePath = (!isDocker && existsSync(bravePath)) ? bravePath : undefined;
   
-  console.log(`[Automation] Launching browser (headless: ${headless})...`);
+  // On HF/Docker, we must run "headed" (headless: false) to use XVFB,
+  // but if the caller explicitly asks for headless, we respect it (unless on HF where we need display)
+  const finalHeadless = isDocker ? false : headless;
+
+  console.log(`[Automation] Launching browser (isDocker: ${isDocker}, headless: ${finalHeadless})...`);
 
   const browser = await chromium.launch({
-    headless, // Set to false to use XVFB (headed mode in Docker)
-    executablePath: existsSync(bravePath) ? bravePath : undefined,
+    headless: finalHeadless,
+    executablePath,
     args: [
       '--disable-blink-features=AutomationControlled',
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-infobars',
-      '--mute-audio'
+      '--mute-audio',
+      '--window-size=1280,720'
     ],
   });
 
@@ -46,6 +55,7 @@ export async function getAutomatedAuth(headless = false) {
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
     storageState: state || undefined,
+    viewport: { width: 1280, height: 720 },
   });
 
   try {
@@ -75,14 +85,7 @@ export async function getAutomatedAuth(headless = false) {
         if (bearerToken) break;
       }
       
-      if (!headless) {
-        // If not headless, give user time to login manually if needed
-        await new Promise(r => setTimeout(r, 2000));
-      } else {
-        // If headless and no cookie, it might need manual login once
-        if (!sessionCookie) break; 
-        await new Promise(r => setTimeout(r, 1000));
-      }
+      await new Promise(r => setTimeout(r, 2000));
     }
 
     if (sessionCookie && bearerToken) {
@@ -106,12 +109,16 @@ export async function getLiveSessionCookie() {
 
 export async function getAutomatedRecaptchaToken(action = 'IMAGE_GENERATION') {
   const bravePath = 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe';
+  const executablePath = (!isDocker && existsSync(bravePath)) ? bravePath : undefined;
   
-  console.log(`\n[Automation] Launching browser for ${action}...`);
+  // Always headed (headless: false) for reCAPTCHA via XVFB in Docker
+  const finalHeadless = isDocker ? false : false;
+
+  console.log(`\n[Automation] Launching browser for ${action} (isDocker: ${isDocker})...`);
 
   const browser = await chromium.launch({
-    headless: false, // Set to false to use XVFB (headed mode in Docker)
-    executablePath: existsSync(bravePath) ? bravePath : undefined,
+    headless: finalHeadless,
+    executablePath,
     args: [
       '--disable-blink-features=AutomationControlled',
       '--no-sandbox',
