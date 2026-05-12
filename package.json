@@ -5,7 +5,7 @@
   "main": "scripts/generate.mjs",
   "type": "module",
   "scripts": {
-    "start": "node scripts/generate.mjs",
+    "start": "node server.mjs",
     "server": "node server.mjs",
     "dev": "nodemon server.mjs",
     "login": "node scripts/login.mjs",

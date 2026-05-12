@@ -91,19 +91,12 @@ export function resolveProjectId(cliProjectId, commandName) {
   const data = readToken();
   if (data?.projectId) return data.projectId;
 
-  console.error(`
-Error: Project ID not found.
-
-Find your project ID:
-  1. Open https://labs.google/fx/tools/flow in Chrome
-  2. Open any project — the URL will look like:
-     https://labs.google/fx/tools/flow/project/YOUR_UUID
-  3. Copy the UUID from the URL
-
-Then run with: node ${commandName} -p "..." --project-id YOUR_UUID
-(Saved automatically for future runs)
-`);
-  process.exit(1);
+  const errorMsg = `Project ID not found. Please provide it in the request or set it up.`;
+  console.error(errorMsg);
+  if (commandName) {
+    process.exit(1);
+  }
+  throw new Error(errorMsg);
 }
 
 // ─── Token validation & refresh ───────────────────────────────────────────
