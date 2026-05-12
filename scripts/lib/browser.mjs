@@ -153,8 +153,6 @@ export async function getAutomatedRecaptchaToken(action = 'IMAGE_GENERATION') {
 
     // Wait for grecaptcha to be ready with retries inside evaluate
     const token = await page.evaluate(async (args) => {
-    ... (rest of evaluate logic) ...
-
       const wait = (ms) => new Promise(r => setTimeout(r, ms));
       
       for (let i = 0; i < 20; i++) {
