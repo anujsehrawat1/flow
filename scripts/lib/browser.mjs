@@ -115,50 +115,64 @@ export async function getAutomatedRecaptchaToken(action = 'IMAGE_GENERATION') {
     args: [
       '--disable-blink-features=AutomationControlled',
       '--no-sandbox',
+      '--disable-setuid-sandbox',
       '--disable-infobars',
-      '--mute-audio'
+      '--mute-audio',
+      '--window-size=1280,720'
     ],
   });
 
   // Load state if it exists
   const state = readStorageState();
-  const contextOptions = {
+  const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
     viewport: { width: 1280, height: 720 },
     storageState: state || undefined,
-  };
-  
-  const context = await browser.newContext(contextOptions);
+  });
 
   try {
     await context.addInitScript(() => {
-      delete navigator.webdriver;
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
     });
 
     const page = await context.newPage();
-    await page.goto('https://labs.google/fx/tools/flow', { waitUntil: 'networkidle', timeout: 30000 });
     
-    await page.mouse.move(Math.random() * 400, Math.random() * 400);
-    await new Promise(r => setTimeout(r, 2000));
+    // Set a realistic timeout
+    page.setDefaultTimeout(45000);
 
+    await page.goto('https://labs.google/fx/tools/flow', { waitUntil: 'networkidle' });
+    
+    // Human-like behavior
+    await page.mouse.move(Math.random() * 800, Math.random() * 600);
+    await new Promise(r => setTimeout(r, 3000));
+
+    // Wait for grecaptcha to be ready with retries inside evaluate
     const token = await page.evaluate(async (args) => {
-      if (typeof grecaptcha === 'undefined' || !grecaptcha.enterprise) {
-        throw new Error('reCAPTCHA not loaded');
+      const wait = (ms) => new Promise(r => setTimeout(r, ms));
+      
+      for (let i = 0; i < 20; i++) {
+        if (typeof grecaptcha !== 'undefined' && grecaptcha.enterprise && grecaptcha.enterprise.execute) {
+          try {
+            return await grecaptcha.enterprise.execute(args.siteKey, { action: args.action });
+          } catch (e) {
+            console.error('reCAPTCHA execute error:', e.message);
+          }
+        }
+        await wait(1000);
       }
-      return await grecaptcha.enterprise.execute(args.siteKey, { action: args.action });
+      throw new Error('reCAPTCHA (grecaptcha.enterprise) failed to load or execute after 20s');
     }, { siteKey: SITE_KEY, action });
 
     // Update in-memory state
     _memoryStorageState = await context.storageState();
-    console.log(`[Automation] Token acquired and session state updated in memory.`);
+    console.log(`[Automation] Token acquired successfully.`);
     
     return token;
   } catch (err) {
-    console.error('[Automation] Error during token extraction:', err.message);
-    throw err;
+    console.error('[Automation] Error during reCAPTCHA extraction:', err.message);
+    throw new Error(`reCAPTCHA automation failed: ${err.message}`);
   } finally {
     await browser.close().catch(() => {});
-    console.log('[Automation] Browser closed.');
   }
 }
 
