@@ -126,14 +126,17 @@ async function generateImage(prompt, model, ratio, count, token, projectId, reca
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
       'Origin': 'https://labs.google',
+      'Referer': 'https://labs.google/fx/tools/flow',
     },
     body: JSON.stringify(payload),
   });
 
   const text = await res.text();
   if (!res.ok) {
+    console.error(`[API Error Response]:`, text);
     let errorMessage = text;
-    try {
+  ... (rest of logic) ...
+
       const errorJson = JSON.parse(text);
       if (errorJson.error?.details?.[0]?.reason === 'PUBLIC_ERROR_PROMINENT_PEOPLE_FILTER_FAILED') {
         errorMessage = 'Safety Filter: Prominent people (like celebrities or politicians) are blocked by Google for this model/ratio.';

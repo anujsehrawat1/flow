@@ -136,18 +136,25 @@ export async function getAutomatedRecaptchaToken(action = 'IMAGE_GENERATION') {
     });
 
     const page = await context.newPage();
-    
     // Set a realistic timeout
-    page.setDefaultTimeout(45000);
+    page.setDefaultTimeout(60000);
 
     await page.goto('https://labs.google/fx/tools/flow', { waitUntil: 'networkidle' });
-    
-    // Human-like behavior
-    await page.mouse.move(Math.random() * 800, Math.random() * 600);
-    await new Promise(r => setTimeout(r, 3000));
+
+    // Human-like behavior: more movements and clicks
+    for (let i = 0; i < 5; i++) {
+      await page.mouse.move(Math.random() * 1000, Math.random() * 800);
+      await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
+    }
+
+    // Scroll a bit
+    await page.evaluate(() => window.scrollBy(0, 100));
+    await new Promise(r => setTimeout(r, 2000));
 
     // Wait for grecaptcha to be ready with retries inside evaluate
     const token = await page.evaluate(async (args) => {
+    ... (rest of evaluate logic) ...
+
       const wait = (ms) => new Promise(r => setTimeout(r, ms));
       
       for (let i = 0; i < 20; i++) {
