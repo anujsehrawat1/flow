@@ -135,8 +135,7 @@ async function generateImage(prompt, model, ratio, count, token, projectId, reca
   if (!res.ok) {
     console.error(`[API Error Response]:`, text);
     let errorMessage = text;
-  ... (rest of logic) ...
-
+    try {
       const errorJson = JSON.parse(text);
       if (errorJson.error?.details?.[0]?.reason === 'PUBLIC_ERROR_PROMINENT_PEOPLE_FILTER_FAILED') {
         errorMessage = 'Safety Filter: Prominent people (like celebrities or politicians) are blocked by Google for this model/ratio.';
@@ -180,11 +179,16 @@ async function startVideoGeneration(prompt, model, ratio, token, projectId, reca
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
       'Origin': 'https://labs.google',
+      'Referer': 'https://labs.google/fx/tools/flow',
     },
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) throw new Error(`API Error ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error(`[Video API Error Response]:`, errorText);
+    throw new Error(`API Error ${res.status}: ${errorText}`);
+  }
   const data = await res.json();
   return data.media?.[0]?.name;
 }
