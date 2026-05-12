@@ -1,5 +1,10 @@
 import express from 'express';
 import swaggerUi from 'swagger-ui-express';
+
+console.log('--- Starting Flow Proxy Server ---');
+console.log('Environment:', process.env.SPACE_ID ? 'Hugging Face' : 'Local');
+console.log('Port:', process.env.PORT || 3000);
+
 import swaggerJsdoc from 'swagger-jsdoc';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
