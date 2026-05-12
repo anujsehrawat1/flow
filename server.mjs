@@ -10,7 +10,8 @@ import {
   resolveProjectId,
   cleanup,
   readToken,
-  saveToken
+  saveToken,
+  ensureSessionCookie
 } from './scripts/lib/auth.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -222,7 +223,8 @@ app.post('/generate', async (req, res) => {
     const token = await ensureToken();
     const tokenData = await readToken();
     if (!projectId) {
-      projectId = tokenData?.projectId || await createProject(`Auto Image Project`, token, tokenData.sessionCookie);
+      const sessionCookie = await ensureSessionCookie();
+      projectId = tokenData?.projectId || await createProject(`Auto Image Project`, token, sessionCookie);
       if (!tokenData.projectId) saveToken({ ...tokenData, projectId });
     }
 
@@ -279,7 +281,8 @@ app.post('/generate-video', async (req, res) => {
     const token = await ensureToken();
     const tokenData = await readToken();
     if (!projectId) {
-      projectId = tokenData?.projectId || await createProject(`Auto Video Project`, token, tokenData.sessionCookie);
+      const sessionCookie = await ensureSessionCookie();
+      projectId = tokenData?.projectId || await createProject(`Auto Video Project`, token, sessionCookie);
       if (!tokenData.projectId) saveToken({ ...tokenData, projectId });
     }
 
@@ -334,8 +337,9 @@ app.get('/video-status/:mediaId', async (req, res) => {
  *         description: Whether the CLI is connected to Google.
  */
 app.get('/auth-status', async (req, res) => {
+  const sessionCookie = await ensureSessionCookie();
   const tokenData = await readToken();
-  res.json({ connected: !!(tokenData?.sessionCookie), projectId: tokenData?.projectId });
+  res.json({ connected: !!(sessionCookie), projectId: tokenData?.projectId });
 });
 
 /**
@@ -358,8 +362,8 @@ app.post('/create-project', async (req, res) => {
   const { title } = req.body;
   try {
     const token = await ensureToken();
-    const tokenData = await readToken();
-    const projectId = await createProject(title, token, tokenData.sessionCookie);
+    const sessionCookie = await ensureSessionCookie();
+    const projectId = await createProject(title, token, sessionCookie);
     res.json({ success: true, projectId });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

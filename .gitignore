@@ -1,6 +1,6 @@
-# Auth tokens — NEVER commit
-.flow-proxy/
-token.json
+# Auth tokens
+# .auth-data is allowed for private HF deployment as requested
+# token.json removed from ignore
 
 # Generated images and videos
 *.png

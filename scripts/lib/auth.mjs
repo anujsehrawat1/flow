@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
-import { getAutomatedRecaptchaToken, closeBrowser as closeAutomatedBrowser } from './browser.mjs';
+import { getAutomatedRecaptchaToken, closeBrowser as closeAutomatedBrowser, getLiveSessionCookie, getAutomatedAuth } from './browser.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..', '..');
@@ -29,18 +29,54 @@ let _recaptchaPromise = null; // cached pending promise
 
 // ─── Token file helpers ────────────────────────────────────────────────────
 
+// In-memory cache to prevent filesystem writes that trigger rebuilds on Hugging Face
+let _memoryTokenData = null;
+
 export function readToken() {
+  if (_memoryTokenData) return _memoryTokenData;
+  
   if (!existsSync(TOKEN_FILE)) return null;
   try {
-    return JSON.parse(readFileSync(TOKEN_FILE, 'utf-8'));
+    _memoryTokenData = JSON.parse(readFileSync(TOKEN_FILE, 'utf-8'));
+    return _memoryTokenData;
   } catch {
     return null;
   }
 }
 
 export function saveToken(data) {
-  mkdirSync(TOKEN_DIR, { recursive: true });
-  writeFileSync(TOKEN_FILE, JSON.stringify(data, null, 2));
+  // Update in-memory cache
+  _memoryTokenData = { ...(_memoryTokenData || {}), ...data };
+  console.log('[Auth] Token data updated in memory.');
+}
+
+/**
+ * Ensures we have a valid session cookie.
+ * If the current one is missing or likely expired, it scrapes a new one from a headless browser.
+ */
+export async function ensureSessionCookie() {
+  const data = readToken() || {};
+  
+  // Try to use existing cookie first
+  if (data.sessionCookie) {
+    const token = await refreshToken(data.sessionCookie);
+    if (token) return data.sessionCookie;
+  }
+
+  // If missing or invalid, scrape live
+  console.log('Session cookie expired or missing. Fetching live from browser...');
+  const auth = await getAutomatedAuth(true);
+  if (auth) {
+    saveToken({ 
+      ...data, 
+      sessionCookie: auth.sessionCookie, 
+      accessToken: auth.accessToken, 
+      expiresAt: Date.now() + 3600000 
+    });
+    return auth.sessionCookie;
+  }
+
+  return null;
 }
 
 export function resolveProjectId(cliProjectId, commandName) {
@@ -91,14 +127,14 @@ export async function getValidToken() {
   }
 
   // Auto-refresh via session cookie
-  if (data.sessionCookie) {
-    const newToken = await refreshToken(data.sessionCookie);
+  const sessionCookie = await ensureSessionCookie();
+  if (sessionCookie) {
+    const newToken = await refreshToken(sessionCookie);
     if (newToken) {
-      saveToken({ ...data, accessToken: newToken, expiresAt: Date.now() + 3600000 });
+      saveToken({ ...data, sessionCookie, accessToken: newToken, expiresAt: Date.now() + 3600000 });
       console.log('Token auto-refreshed via session cookie.');
       return newToken;
     }
-    console.error('Session cookie expired. Please reconnect the extension.');
   }
 
   return null;
@@ -124,7 +160,7 @@ function handleRequest(req, res) {
     return;
   }
 
-  // OAuth token from extension
+  // OAuth token from extension (Fallback support)
   if (req.method === 'POST' && req.url === '/auth') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
@@ -172,7 +208,6 @@ function handleRequest(req, res) {
         const reject = _recaptchaReject;
         _recaptchaResolve = null;
         _recaptchaReject = null;
-        // _recaptchaPromise is cleared via .finally() in getRecaptchaToken
 
         if (error && reject) {
           reject(new Error(error));
@@ -194,7 +229,6 @@ function handleRequest(req, res) {
 
 /**
  * Start the persistent HTTP server.
- * Returns the server instance, or null if port is already in use.
  */
 export function startServer() {
   return new Promise((resolve) => {
@@ -202,7 +236,6 @@ export function startServer() {
 
     srv.on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
-        // Another instance is already running — still usable for reCAPTCHA
         resolve(null);
       } else {
         console.error('Server error:', err.message);
@@ -227,51 +260,29 @@ export function stopServer() {
 // ─── Auth flow ─────────────────────────────────────────────────────────────
 
 /**
- * Wait for the user to click "Connect" in the Chrome extension.
- * Server must already be running.
- */
-function waitForAuthToken() {
-  return new Promise((resolve, reject) => {
-    _authResolve = resolve;
-
-    console.log('');
-    console.log('='.repeat(60));
-    console.log('  ACTION REQUIRED:');
-    console.log('  1. Open Chrome: https://labs.google/fx/tools/flow');
-    console.log('  2. Click the Flow Proxy extension icon');
-    console.log('  3. Click "Connect"');
-    console.log('='.repeat(60));
-    console.log('');
-
-    // Also poll token file (catches tokens saved before server started)
-    const pollInterval = setInterval(async () => {
-      const token = await getValidToken();
-      if (token && _authResolve) {
-        clearInterval(pollInterval);
-        const r = _authResolve;
-        _authResolve = null;
-        console.log('Token found! Proceeding...\n');
-        r(token);
-      }
-    }, 2000);
-
-    setTimeout(() => {
-      if (_authResolve) {
-        clearInterval(pollInterval);
-        _authResolve = null;
-        reject(new Error('Auth timeout (10 minutes). Try again.'));
-      }
-    }, 600000);
-  });
-}
-
-/**
- * Ensure a valid OAuth token exists. Starts the server if needed.
+ * Ensure a valid OAuth token exists.
+ * Automatically triggers browser-based login if needed.
  */
 export async function ensureToken() {
   const token = await getValidToken();
   if (token) return token;
-  return waitForAuthToken();
+
+  console.log('\n[Auth] Session expired or missing. Launching automated login...');
+  
+  // Try automated login (windowed so user can see/interact if needed)
+  const auth = await getAutomatedAuth(false);
+  
+  if (auth) {
+    saveToken({ 
+      sessionCookie: auth.sessionCookie, 
+      accessToken: auth.accessToken, 
+      expiresAt: Date.now() + 3600000 
+    });
+    console.log('[Auth] Automated login successful!');
+    return auth.accessToken;
+  }
+
+  throw new Error('Automated login failed. Please ensure your browser setup is correct.');
 }
 
 // ─── reCAPTCHA ─────────────────────────────────────────────────────────────

@@ -1,23 +1,17 @@
-FROM node:20-slim
-
-# Install dependencies for Playwright (if needed for reCAPTCHA later)
-RUN apt-get update && apt-get install -y \
-    libgbm-dev \
-    libnss3 \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libgtk-3-0 \
-    && rm -rf /var/lib/apt/lists/*
+FROM mcr.microsoft.com/playwright:v1.43.1-jammy
 
 WORKDIR /app
 
+# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm install
 
+# Copy the rest of the application
 COPY . .
 
 # HF Spaces use port 7860
 ENV PORT=7860
 EXPOSE 7860
 
+# Run the server
 CMD ["node", "server.mjs"]

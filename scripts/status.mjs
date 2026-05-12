@@ -4,17 +4,17 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import { homedir } from 'os';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-const TOKEN_FILE = join(homedir(), '.flow-proxy', 'token.json');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const TOKEN_FILE = join(__dirname, '..', '.auth-data', 'token.json');
 
 async function main() {
   if (!existsSync(TOKEN_FILE)) {
     console.log('Token not found');
     console.log(`Expected at: ${TOKEN_FILE}`);
-    console.log('\nInstall the Flow Proxy Chrome extension,');
-    console.log('open https://labs.google/fx/tools/flow and click Connect.');
+    console.log('\nRun "npm run login" first.');
     process.exit(1);
   }
 

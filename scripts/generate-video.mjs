@@ -16,6 +16,7 @@ import {
   cleanup,
   readToken,
   resolveProjectId,
+  ensureSessionCookie,
 } from './lib/auth.mjs';
 
 const ENDPOINT_BASE = 'https://aisandbox-pa.googleapis.com/v1';
@@ -352,11 +353,8 @@ async function main() {
   await startServer();
 
   const token = await ensureToken();
-  const sessionCookie = readToken()?.sessionCookie;
-  if (!sessionCookie) {
-    console.error('Error: No session cookie found. Please reconnect the extension.');
-    process.exit(1);
-  }
+  const sessionCookie = await ensureSessionCookie();
+  
   const projectId = resolveProjectId(values['project-id'], 'generate-video.mjs');
   const outputDir = values.output;
   const model = values.model;

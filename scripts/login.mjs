@@ -1,11 +1,13 @@
 import { chromium } from 'playwright';
-import { join } from 'path';
-import { homedir } from 'os';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 
-const TOKEN_DIR = join(homedir(), '.flow-proxy');
-const USER_DATA_DIR = join(TOKEN_DIR, 'browser_data');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = join(__dirname, '..');
+const TOKEN_DIR = join(PROJECT_ROOT, '.auth-data');
 const TOKEN_FILE = join(TOKEN_DIR, 'token.json');
+const STORAGE_STATE_FILE = join(TOKEN_DIR, 'browser_state.json');
 
 async function login() {
   if (!existsSync(TOKEN_DIR)) {
@@ -15,16 +17,18 @@ async function login() {
   console.log('Opening browser for login...');
   console.log('Please sign in to your Google account on the opened page.');
 
-  // Use Persistent Context for real user profile
   const bravePath = 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe';
   
-  const context = await chromium.launchPersistentContext(USER_DATA_DIR, {
+  const browser = await chromium.launch({
     headless: false,
     executablePath: existsSync(bravePath) ? bravePath : undefined,
     args: [
       '--disable-blink-features=AutomationControlled',
       '--no-sandbox',
     ],
+  });
+
+  const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
   });
 
@@ -45,7 +49,10 @@ async function login() {
 
   console.log('Sign-in detected! Saving session...');
 
-  // Update token.json with the session cookie
+  // 1. Save storage state (JSON session)
+  await context.storageState({ path: STORAGE_STATE_FILE });
+
+  // 2. Update token.json with the session cookie
   let tokenData = {};
   if (existsSync(TOKEN_FILE)) {
     try {
@@ -56,8 +63,8 @@ async function login() {
   tokenData.sessionCookie = sessionCookie.value;
   writeFileSync(TOKEN_FILE, JSON.stringify(tokenData, null, 2));
 
-  console.log('Session saved successfully!');
-  await context.close();
+  console.log('Session saved successfully to .auth-data!');
+  await browser.close();
 }
 
 login().catch(err => {
