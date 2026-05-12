@@ -25,13 +25,13 @@ function readStorageState() {
   return null;
 }
 
-export async function getAutomatedAuth(headless = true) {
+export async function getAutomatedAuth(headless = false) {
   const bravePath = 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe';
   
   console.log(`[Automation] Launching browser (headless: ${headless})...`);
 
   const browser = await chromium.launch({
-    headless,
+    headless, // Set to false to use XVFB (headed mode in Docker)
     executablePath: existsSync(bravePath) ? bravePath : undefined,
     args: [
       '--disable-blink-features=AutomationControlled',
@@ -110,7 +110,7 @@ export async function getAutomatedRecaptchaToken(action = 'IMAGE_GENERATION') {
   console.log(`\n[Automation] Launching browser for ${action}...`);
 
   const browser = await chromium.launch({
-    headless: true, // Headless for Docker compatibility
+    headless: false, // Set to false to use XVFB (headed mode in Docker)
     executablePath: existsSync(bravePath) ? bravePath : undefined,
     args: [
       '--disable-blink-features=AutomationControlled',
