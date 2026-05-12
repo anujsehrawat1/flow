@@ -1,0 +1,25 @@
+# Auth tokens — NEVER commit
+.flow-proxy/
+token.json
+
+# Generated images and videos
+*.png
+*.mp4
+!examples/*.png
+!extension/icons/*.png
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# playwright-cli artifacts
+.playwright-cli/
+.omx/
