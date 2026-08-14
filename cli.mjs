@@ -309,7 +309,7 @@ async function handleCreateProject() {
   console.log('⏳ Registering new project on Google Flow...');
   const newPid = await createProject(title, token, tokenData.sessionCookie);
 
-  if (newPid && newPid !== 'ccac3fc3-9296-4d80-b983-8deb3d72e2c8') {
+  if (newPid && newPid !== 'a5dbda4c-d615-4f5c-8cd3-c9462fb1ef39') {
     console.log(`\n✅ Project Created Successfully!`);
     console.log(`🆔 Project ID: ${newPid}`);
     saveToken({ ...tokenData, projectId: newPid });
@@ -505,7 +505,7 @@ async function createProject(title, token, sessionCookie) {
       if (pid) return pid;
     }
   } catch {}
-  return 'ccac3fc3-9296-4d80-b983-8deb3d72e2c8'; // Default fallback
+  return 'a5dbda4c-d615-4f5c-8cd3-c9462fb1ef39'; // Default fallback
 }
 
 mainLoop().catch(err => {

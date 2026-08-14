@@ -105,7 +105,7 @@ async function createProject(title, token, sessionCookie) {
       if (pid) return pid;
     }
   } catch {}
-  return 'ccac3fc3-9296-4d80-b983-8deb3d72e2c8'; // Default fallback
+  return 'a5dbda4c-d615-4f5c-8cd3-c9462fb1ef39'; // Default fallback
 }
 
 async function generateImage(prompt, model, ratio, count, token, projectId, recaptchaToken) {
