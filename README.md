@@ -1,3 +1,4 @@
+<!--
 ---
 title: Google Labs Flow Proxy
 emoji: 🚀
@@ -6,7 +7,7 @@ colorTo: indigo
 sdk: docker
 pinned: false
 ---
-
+-->
 # Google Labs Flow CLI & API Proxy
 
 An automated creative suite, terminal tool, and proxy server for **Google Labs Flow** (incorporating Google Veo 3.1 and Imagen models). Generate high-quality images, text-to-video, image-to-video, and combine multiple scenes into a long movie directly from your command line or via hosted API endpoints.
