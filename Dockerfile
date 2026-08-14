@@ -11,6 +11,7 @@ RUN npm install
 
 # Copy the rest of the application
 COPY . .
+RUN chmod -R 777 /app
 
 # HF Spaces use port 7860
 ENV PORT=7860
