@@ -248,6 +248,10 @@ app.post('/generate', async (req, res) => {
       if (!tokenData.projectId) saveToken({ ...tokenData, projectId });
     }
 
+    console.log('[API /generate] Using Project ID:', projectId);
+    console.log('[API /generate] Using Token:', token ? token.substring(0, 15) + '...' : 'none');
+    console.log('[API /generate] Using Recaptcha:', recaptchaToken ? recaptchaToken.substring(0, 15) + '...' : 'none');
+
     const finalRecaptchaToken = recaptchaToken || await getRecaptchaToken('IMAGE_GENERATION');
     const data = await generateImage(prompt, model, ratio, count, token, projectId, finalRecaptchaToken);
 
