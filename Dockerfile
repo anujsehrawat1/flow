@@ -18,5 +18,5 @@ ENV PORT=7860
 ENV DISPLAY=:99
 EXPOSE 7860
 
-# Run the server using xvfb-run with automatic display selection
-CMD ["xvfb-run", "-a", "--server-args=-screen 0 1280x720x24", "node", "server.mjs"]
+# Run the server directly
+CMD ["node", "server.mjs"]

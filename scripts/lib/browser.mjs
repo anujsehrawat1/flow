@@ -34,7 +34,7 @@ export async function getAutomatedAuth(headless = false) {
   
   // On HF/Docker, we must run "headed" (headless: false) to use XVFB,
   // but if the caller explicitly asks for headless, we respect it (unless on HF where we need display)
-  const finalHeadless = isDocker ? false : headless;
+  const finalHeadless = isDocker ? true : headless;
 
   console.log(`[Automation] Launching browser (isDocker: ${isDocker}, headless: ${finalHeadless})...`);
 
@@ -112,7 +112,7 @@ export async function getAutomatedRecaptchaToken(action = 'IMAGE_GENERATION') {
   const executablePath = (!isDocker && existsSync(bravePath)) ? bravePath : undefined;
   
   // Always headed (headless: false) for reCAPTCHA via XVFB in Docker
-  const finalHeadless = isDocker ? false : false;
+  const finalHeadless = isDocker ? true : false;
 
   console.log(`\n[Automation] Launching browser for ${action} (isDocker: ${isDocker})...`);
 
