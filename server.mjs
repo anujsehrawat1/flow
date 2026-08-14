@@ -488,7 +488,7 @@ app.post('/create-project', async (req, res) => {
   }
 });
 
-app.get('/', (req, res) => res.redirect('/api-docs'));
+app.get('/', (req, res) => res.status(200).send('Google Labs Flow Proxy Server is Running!'));
 
 process.on('SIGINT', async () => { await cleanup(); process.exit(0); });
 
