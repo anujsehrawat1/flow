@@ -232,7 +232,7 @@ async function startVideoGeneration(prompt, model, ratio, token, projectId, reca
  *         description: Success
  */
 app.post('/generate', async (req, res) => {
-  let { prompt, model = 'imagen4', ratio = '1:1', count = 1, projectId } = req.body;
+  let { prompt, model = 'imagen4', ratio = '1:1', count = 1, projectId, recaptchaToken } = req.body;
   if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
 
   try {
@@ -243,8 +243,8 @@ app.post('/generate', async (req, res) => {
       if (!tokenData.projectId) saveToken({ ...tokenData, projectId });
     }
 
-    const recaptchaToken = await getRecaptchaToken('IMAGE_GENERATION');
-    const data = await generateImage(prompt, model, ratio, count, token, projectId, recaptchaToken);
+    const finalRecaptchaToken = recaptchaToken || await getRecaptchaToken('IMAGE_GENERATION');
+    const data = await generateImage(prompt, model, ratio, count, token, projectId, finalRecaptchaToken);
 
     const images = (data.media || []).map(item => {
       const g = item.image?.generatedImage;
@@ -289,7 +289,7 @@ app.post('/generate', async (req, res) => {
  *         description: Success. Returns mediaId to poll status.
  */
 app.post('/generate-video', async (req, res) => {
-  let { prompt, model = 'veo', ratio = '16:9', projectId } = req.body;
+  let { prompt, model = 'veo', ratio = '16:9', projectId, recaptchaToken } = req.body;
   if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
 
   try {
@@ -300,8 +300,8 @@ app.post('/generate-video', async (req, res) => {
       if (!tokenData.projectId) saveToken({ ...tokenData, projectId });
     }
 
-    const recaptchaToken = await getRecaptchaToken('VIDEO_GENERATION');
-    const videoMediaId = await startVideoGeneration(prompt, model, ratio, token, projectId, recaptchaToken);
+    const finalRecaptchaToken = recaptchaToken || await getRecaptchaToken('VIDEO_GENERATION');
+    const videoMediaId = await startVideoGeneration(prompt, model, ratio, token, projectId, finalRecaptchaToken);
     res.json({ success: true, projectId, mediaId: videoMediaId });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
