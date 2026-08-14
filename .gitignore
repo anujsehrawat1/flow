@@ -3,6 +3,7 @@
 # token.json removed from ignore
 
 # Generated images and videos
+outputs/
 *.png
 *.mp4
 !examples/*.png
@@ -23,3 +24,6 @@ node_modules/
 # playwright-cli artifacts
 .playwright-cli/
 .omx/
+
+# ZIP archives
+*.zip

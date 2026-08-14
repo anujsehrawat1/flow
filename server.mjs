@@ -1,9 +1,11 @@
 import express from 'express';
 import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
-import { dirname, join } from 'path';
+import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
+import { writeFileSync, unlinkSync, existsSync, mkdirSync } from 'fs';
+import { execSync } from 'child_process';
 import {
   ensureToken,
   getRecaptchaToken,
@@ -13,6 +15,7 @@ import {
   saveToken,
   ensureSessionCookie
 } from './scripts/lib/auth.mjs';
+import { generateVideo, pollVideoStatus, downloadVideo } from './scripts/generate-video.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express({ limit: '50mb' });
@@ -333,6 +336,111 @@ app.get('/video-status/:mediaId', async (req, res) => {
     const status = data.media?.[0]?.mediaMetadata?.mediaStatus?.mediaGenerationStatus;
     const downloadUrl = status === 'MEDIA_GENERATION_STATUS_SUCCESSFUL' ? `https://labs.google/fx/api/trpc/media.getMediaUrlRedirect?name=${encodeURIComponent(mediaId)}` : null;
     res.json({ success: true, status, downloadUrl });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /generate-long-video:
+ *   post:
+ *     summary: Create Long Video from JSON
+ *     description: Generate multiple video scenes and concatenate them into a single movie.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [scenes]
+ *             properties:
+ *               scenes:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required: [prompt]
+ *                   properties:
+ *                     prompt: { type: string }
+ *                     camera_angle: { type: string }
+ *                     lighting: { type: string }
+ *                     character_movement: { type: string }
+ *                     ratio: { type: string }
+ *                     model: { type: string }
+ *               projectId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Merged movie file.
+ */
+app.post('/generate-long-video', async (req, res) => {
+  const { scenes, projectId: reqProjectId } = req.body;
+  if (!Array.isArray(scenes) || scenes.length === 0) {
+    return res.status(400).json({ error: 'Scenes array is required and cannot be empty' });
+  }
+
+  try {
+    const token = await ensureToken();
+    const sessionCookie = await ensureSessionCookie();
+    const tokenData = await readToken();
+    let projectId = reqProjectId || tokenData?.projectId || await createProject(`API Movie Project`, token, tokenData.sessionCookie);
+
+    const generatedClips = [];
+    const ts = Date.now();
+    const tempDir = join(__dirname, 'outputs');
+
+    // Create outputs directory if not exists
+    if (!existsSync(tempDir)) {
+      mkdirSync(tempDir, { recursive: true });
+    }
+
+    for (let i = 0; i < scenes.length; i++) {
+      const scene = scenes[i];
+      let finalPrompt = scene.prompt || '';
+      if (!finalPrompt.trim()) continue;
+
+      if (scene.camera_angle) finalPrompt += `, camera angle: ${scene.camera_angle}`;
+      if (scene.lighting) finalPrompt += `, lighting: ${scene.lighting}`;
+      if (scene.character_movement) finalPrompt += `, character movement: ${scene.character_movement}`;
+
+      const model = scene.model || 'veo';
+      const ratio = scene.ratio || '16:9';
+
+      const recaptchaToken = await getRecaptchaToken('VIDEO_GENERATION');
+      const mediaId = await generateVideo(finalPrompt, model, ratio, undefined, token, projectId, recaptchaToken);
+
+      await pollVideoStatus(mediaId, projectId, token);
+      const clipFilepath = await downloadVideo(mediaId, sessionCookie, tempDir, `${ts}_scene_${i}`);
+      generatedClips.push(clipFilepath);
+    }
+
+    if (generatedClips.length === 0) {
+      throw new Error('No scenes were successfully generated.');
+    }
+
+    const listFilepath = join(tempDir, `concat_list_${ts}.txt`);
+    const listContent = generatedClips
+      .map(clip => `file '${resolve(clip).replace(/\\/g, '/').replace(/'/g, "'\\''")}'`)
+      .join('\n');
+    writeFileSync(listFilepath, listContent, 'utf8');
+
+    const finalMoviePath = join(tempDir, `movie_${ts}.mp4`);
+    
+    // Concat files using ffmpeg copy mode
+    execSync(`ffmpeg -y -f concat -safe 0 -i "${listFilepath}" -c copy "${finalMoviePath}"`, { stdio: 'inherit' });
+
+    // Clean up temporary list file and clips
+    try { unlinkSync(listFilepath); } catch {}
+    for (const clip of generatedClips) {
+      try { unlinkSync(clip); } catch {}
+    }
+
+    // Send final movie file to the client
+    res.sendFile(resolve(finalMoviePath), (err) => {
+      // Clean up final movie file after sending
+      try { unlinkSync(finalMoviePath); } catch {}
+    });
+
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
