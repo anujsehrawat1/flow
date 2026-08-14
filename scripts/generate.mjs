@@ -9,6 +9,7 @@ import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { parseArgs } from 'util';
 import { randomUUID } from 'crypto';
+import { fileURLToPath } from 'url';
 import {
   ensureToken,
   getRecaptchaToken,
@@ -34,22 +35,27 @@ const ASPECT_MAP = {
   '3:4':  'IMAGE_ASPECT_RATIO_PORTRAIT_THREE_FOUR',
 };
 
-const { values } = parseArgs({
-  options: {
-    prompt:     { type: 'string',  short: 'p' },
-    model:      { type: 'string',  short: 'm', default: 'imagen4' },
-    ratio:      { type: 'string',  short: 'r', default: '16:9' },
-    image:      { type: 'string',  short: 'i' },
-    output:     { type: 'string',  short: 'o', default: '.' },
-    count:      { type: 'string',  short: 'c', default: '1' },
-    seed:       { type: 'string',  short: 's' },
-    'project-id': { type: 'string', short: 'j' },
-    help:       { type: 'boolean', short: 'h', default: false },
-  },
-});
+const isMain = process.argv[1] && (process.argv[1] === fileURLToPath(import.meta.url) || process.argv[1].endsWith('generate.mjs'));
+let values = {};
 
-if (values.help || !values.prompt) {
-  console.log(`Flow Image Generator
+if (isMain) {
+  const parsed = parseArgs({
+    options: {
+      prompt:     { type: 'string',  short: 'p' },
+      model:      { type: 'string',  short: 'm', default: 'imagen4' },
+      ratio:      { type: 'string',  short: 'r', default: '16:9' },
+      image:      { type: 'string',  short: 'i' },
+      output:     { type: 'string',  short: 'o', default: '.' },
+      count:      { type: 'string',  short: 'c', default: '1' },
+      seed:       { type: 'string',  short: 's' },
+      'project-id': { type: 'string', short: 'j' },
+      help:       { type: 'boolean', short: 'h', default: false },
+    },
+  });
+  values = parsed.values;
+
+  if (values.help || !values.prompt) {
+    console.log(`Flow Image Generator
 
 Usage: node generate.mjs -p "prompt" [options]
 
@@ -68,10 +74,11 @@ Models:
   imagen4      Imagen 4 (highest quality, default)
   banana2      Nano Banana 2
   banana-pro   Nano Banana Pro`);
-  process.exit(values.help ? 0 : 1);
+    process.exit(values.help ? 0 : 1);
+  }
 }
 
-function detectImageExtension(buffer, contentType = '') {
+export function detectImageExtension(buffer, contentType = '') {
   const normalizedType = contentType.split(';', 1)[0].trim().toLowerCase();
   if (normalizedType === 'image/jpeg') return 'jpg';
   if (normalizedType === 'image/png') return 'png';
@@ -99,7 +106,7 @@ function detectImageExtension(buffer, contentType = '') {
   return 'bin';
 }
 
-async function uploadReferenceImage(imagePath, token, projectId) {
+export async function uploadReferenceImage(imagePath, token, projectId) {
   const imageBytes = readFileSync(imagePath).toString('base64');
 
   const res = await fetch(`${ENDPOINT_BASE}/flow/uploadImage`, {
@@ -125,7 +132,7 @@ async function uploadReferenceImage(imagePath, token, projectId) {
   return mediaId;
 }
 
-async function generate(prompt, model, ratio, count, seed, token, projectId, recaptchaToken, imageInputs = []) {
+export async function generate(prompt, model, ratio, count, seed, token, projectId, recaptchaToken, imageInputs = []) {
   const sessionId = ';' + Date.now();
   const batchId = randomUUID();
   const clientCtx = {
@@ -175,7 +182,7 @@ async function generate(prompt, model, ratio, count, seed, token, projectId, rec
  * Extract base64 images from the response.
  * Handles Flow (media[]) and legacy ImageFX (imagePanels) formats.
  */
-function extractImages(data) {
+export function extractImages(data) {
   // Flow format: { media: [{ image: { generatedImage: { fifeUrl | encodedImage } } }] }
   if (Array.isArray(data.media) && data.media.length > 0) {
     const results = [];
@@ -274,8 +281,10 @@ async function main() {
   cleanup();
 }
 
-main().catch(err => {
-  console.error('Fatal:', err.message);
-  cleanup();
-  process.exit(1);
-});
+if (isMain) {
+  main().catch(err => {
+    console.error('Fatal:', err.message);
+    cleanup();
+    process.exit(1);
+  });
+}

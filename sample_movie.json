@@ -1,0 +1,18 @@
+[
+  {
+    "prompt": "A beautiful cinematic shot of a sunset over futuristic cyberpunk mountains",
+    "camera_angle": "slow panning shot, wide-angle lens",
+    "lighting": "golden hour, deep orange glowing horizon, high contrast shadows",
+    "character_movement": null,
+    "ratio": "16:9",
+    "model": "veo"
+  },
+  {
+    "prompt": "A glowing holographic cyber-bird flying through the futuristic mountains towards the screen",
+    "camera_angle": "dynamic tracking shot following the bird",
+    "lighting": "neon cyan bioluminescent wings casting light on rocks",
+    "character_movement": "wings flapping gracefully, soaring through the sky",
+    "ratio": "16:9",
+    "model": "veo"
+  }
+]

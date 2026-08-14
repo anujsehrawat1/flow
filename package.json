@@ -10,6 +10,7 @@
     "dev": "nodemon server.mjs",
     "login": "node scripts/login.mjs",
     "status": "node scripts/status.mjs",
+    "cli": "node cli.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {

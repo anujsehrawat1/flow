@@ -47,7 +47,14 @@ export function readToken() {
 export function saveToken(data) {
   // Update in-memory cache
   _memoryTokenData = { ...(_memoryTokenData || {}), ...data };
-  console.log('[Auth] Token data updated in memory.');
+  if (!process.env.SPACE_ID) {
+    try {
+      writeFileSync(TOKEN_FILE, JSON.stringify(_memoryTokenData, null, 2));
+    } catch (e) {
+      console.error('[Auth] Failed to write token file:', e.message);
+    }
+  }
+  console.log('[Auth] Token data updated.');
 }
 
 /**

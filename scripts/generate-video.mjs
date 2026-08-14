@@ -9,6 +9,7 @@ import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { parseArgs } from 'util';
 import { randomUUID } from 'crypto';
+import { fileURLToPath } from 'url';
 import {
   ensureToken,
   getRecaptchaToken,
@@ -32,21 +33,26 @@ const ASPECT_MAP = {
   '1:1':  'VIDEO_ASPECT_RATIO_SQUARE',
 };
 
-const { values } = parseArgs({
-  options: {
-    prompt:       { type: 'string',  short: 'p' },
-    model:        { type: 'string',  short: 'm', default: 'veo' },
-    ratio:        { type: 'string',  short: 'r', default: '16:9' },
-    image:        { type: 'string',  short: 'i' },
-    output:       { type: 'string',  short: 'o', default: '.' },
-    seed:         { type: 'string',  short: 's' },
-    'project-id': { type: 'string',  short: 'j' },
-    help:         { type: 'boolean', short: 'h', default: false },
-  },
-});
+const isMain = process.argv[1] && (process.argv[1] === fileURLToPath(import.meta.url) || process.argv[1].endsWith('generate-video.mjs'));
+let values = {};
 
-if (values.help || !values.prompt) {
-  console.log(`Flow Video Generator
+if (isMain) {
+  const parsed = parseArgs({
+    options: {
+      prompt:       { type: 'string',  short: 'p' },
+      model:        { type: 'string',  short: 'm', default: 'veo' },
+      ratio:        { type: 'string',  short: 'r', default: '16:9' },
+      image:        { type: 'string',  short: 'i' },
+      output:       { type: 'string',  short: 'o', default: '.' },
+      seed:         { type: 'string',  short: 's' },
+      'project-id': { type: 'string',  short: 'j' },
+      help:         { type: 'boolean', short: 'h', default: false },
+    },
+  });
+  values = parsed.values;
+
+  if (values.help || !values.prompt) {
+    console.log(`Flow Video Generator
 
 Usage: node generate-video.mjs -p "prompt" [options]
 
@@ -63,12 +69,13 @@ Options:
 Models:
   veo        Veo 3.1 Text-to-Video (default)
   veo-r2v    Veo 3.1 Image-to-Video (requires --image)`);
-  process.exit(values.help ? 0 : 1);
-}
+    process.exit(values.help ? 0 : 1);
+  }
 
-if (values.model === 'veo-r2v' && !values.image) {
-  console.error('Error: --image (-i) is required for veo-r2v model.');
-  process.exit(1);
+  if (values.model === 'veo-r2v' && !values.image) {
+    console.error('Error: --image (-i) is required for veo-r2v model.');
+    process.exit(1);
+  }
 }
 
 // ─── Image Upload (for veo-r2v) ───────────────────────────────────────────────
@@ -102,7 +109,7 @@ async function uploadReferenceImage(imagePath, token, projectId) {
 
 // ─── Video Generation ─────────────────────────────────────────────────────────
 
-async function generateVideo(prompt, model, ratio, seed, token, projectId, recaptchaToken, referenceMediaId = null) {
+export async function generateVideo(prompt, model, ratio, seed, token, projectId, recaptchaToken, referenceMediaId = null) {
   const batchId = randomUUID();
   const sessionId = ';' + Date.now();
 
@@ -198,6 +205,7 @@ const PENDING_STATUS_HINTS = [
   'PREPARING',
   'GENERATING',
   'RENDERING',
+  'ACTIVE',
 ];
 const FAILED_STATUS_HINTS = ['FAILED', 'CANCELLED', 'ERROR', 'EXPIRED'];
 const DOWNLOAD_RETRYABLE_STATUSES = new Set([404, 409, 425, 429, 500, 502, 503, 504]);
@@ -226,7 +234,7 @@ function formatMediaStatusDiagnostic(mediaItem) {
   return JSON.stringify(diagnostic, null, 2).slice(0, 800);
 }
 
-async function pollVideoStatus(mediaId, projectId, token) {
+export async function pollVideoStatus(mediaId, projectId, token) {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   let lastStatus = null;
 
@@ -302,7 +310,7 @@ async function pollVideoStatus(mediaId, projectId, token) {
 
 // ─── Download ─────────────────────────────────────────────────────────────────
 
-async function downloadVideo(mediaId, sessionCookie, outputDir, ts) {
+export async function downloadVideo(mediaId, sessionCookie, outputDir, ts) {
   // WHY labs.google trpc (not aisandbox-pa): the aisandbox endpoint requires
   // mediaUrlType=MEDIA_URL_TYPE_VIDEO but returns 404 for video media.
   // The trpc endpoint redirects to signed GCS URLs and accepts the session cookie.
@@ -402,8 +410,10 @@ async function main() {
   cleanup();
 }
 
-main().catch(err => {
-  console.error('Fatal:', err.message);
-  cleanup();
-  process.exit(1);
-});
+if (isMain) {
+  main().catch(err => {
+    console.error('Fatal:', err.message);
+    cleanup();
+    process.exit(1);
+  });
+}
