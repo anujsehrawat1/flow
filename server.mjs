@@ -86,21 +86,26 @@ const ASPECT_MAP_VIDEO = {
 // ─── HELPERS ───────────────────────────────────────────────────────────────
 
 async function createProject(title, token, sessionCookie) {
-  const res = await fetch(`https://labs.google/fx/api/trpc/project.createProject`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Cookie': `__Secure-next-auth.session-token=${sessionCookie}`,
-      'Origin': 'https://labs.google',
-      'Referer': 'https://labs.google/fx/tools/flow',
-    },
-    body: JSON.stringify({
-      json: { projectTitle: title || `API Project ${new Date().toLocaleString()}`, toolName: 'PINHOLE' }
-    }),
-  });
-  if (!res.ok) throw new Error(`Project creation failed ${res.status}`);
-  const data = await res.json();
-  return data.result?.data?.json?.result?.projectId;
+  try {
+    const res = await fetch(`https://labs.google/fx/api/trpc/project.createProject`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': `__Secure-next-auth.session-token=${sessionCookie}`,
+        'Origin': 'https://labs.google',
+        'Referer': 'https://labs.google/fx/tools/flow',
+      },
+      body: JSON.stringify({
+        json: { projectTitle: title || `API Project ${new Date().toLocaleString()}`, toolName: 'PINHOLE' }
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const pid = data.result?.data?.json?.result?.projectId;
+      if (pid) return pid;
+    }
+  } catch {}
+  return 'ccac3fc3-9296-4d80-b983-8deb3d72e2c8'; // Default fallback
 }
 
 async function generateImage(prompt, model, ratio, count, token, projectId, recaptchaToken) {
