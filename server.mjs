@@ -237,7 +237,7 @@ async function startVideoGeneration(prompt, model, ratio, token, projectId, reca
  *         description: Success
  */
 app.post('/generate', async (req, res) => {
-  let { prompt, model = 'imagen4', ratio = '1:1', count = 1, projectId, recaptchaToken } = req.body;
+  let { prompt, model = 'banana-pro', ratio = '1:1', count = 1, projectId, recaptchaToken } = req.body;
   if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
 
   try {

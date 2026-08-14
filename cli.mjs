@@ -335,7 +335,7 @@ async function handleImageGeneration() {
     return;
   }
 
-  const model = await askWithDefault('Select Model (imagen4, banana2, banana-pro)', 'imagen4');
+  const model = await askWithDefault('Select Model (banana-pro, banana2, imagen4)', 'banana-pro');
   const ratio = await askWithDefault('Aspect Ratio (1:1, 16:9, 9:16, 4:3, 3:4)', '1:1');
   const countStr = await askWithDefault('Number of images (1-4)', '1');
   const count = Math.min(Math.max(parseInt(countStr) || 1, 1), 4);
