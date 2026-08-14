@@ -1,6 +1,5 @@
 # Auth tokens
-# .auth-data is allowed for private HF deployment as requested
-# token.json removed from ignore
+.auth-data/
 
 # Generated images and videos
 outputs/
