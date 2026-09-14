@@ -32,6 +32,7 @@ An automated creative suite, terminal tool, and proxy server for **Google Labs F
 3.  **FFmpeg:** Required for merging video clips (Long Movie Maker).
     *   *Windows:* Download from gyan.dev and add to PATH.
     *   *Linux/Ubuntu:* `sudo apt install ffmpeg`
+    *   *macOS:* `brew install ffmpeg`
 
 ---
 
